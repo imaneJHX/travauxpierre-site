@@ -9,18 +9,18 @@
   body{font-family:system-ui,Arial;margin:0;background:var(--bg);color:var(--fg)}
   header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   h1{font-size:20px;margin:0}
-  input,select,button{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff}
-  main{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px; padding:16px; min-height: calc(100vh - 70px);}
+  input,select,button{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
+  main{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px;padding:16px;min-height:calc(100vh - 70px)}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
   .card{border:1px solid var(--border);background:#fff;border-radius:12px;overflow:hidden}
-  .card img{width:100%;height:150px;object-fit:cover}
+  .card img{width:100%;height:150px;object-fit:cover;background:#f6f6f6}
   .card .body{padding:10px}
   .price{font-weight:700}
   .muted{color:var(--muted);font-size:12px}
   /* Chat */
   .chat{display:flex;flex-direction:column;height:100%;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff}
   .chat-log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--card)}
-  .msg{max-width:80%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff}
+  .msg{max-width:80%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff;white-space:pre-wrap}
   .me{align-self:flex-end;background:#eef6ff;border-color:#d4e7ff}
   .bot{align-self:flex-start;background:#fff}
   .chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border)}
@@ -41,7 +41,7 @@
 </header>
 
 <main>
-  <!-- Galerie classique (ta partie existante) -->
+  <!-- Galerie -->
   <section>
     <div id="grid" class="grid"></div>
   </section>
@@ -59,112 +59,196 @@
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+  // --- Supabase (garde ton URL + anon key) ---
   const supabase = createClient(
     "https://utmtwxkafpgdqxcncwis.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0bXR3eGthZnBnZHF4Y25jd2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5OTk5MDUsImV4cCI6MjA3NDU3NTkwNX0.0Pj7vX99cc3HZI_AZA4u8TkdGdOgu7jqEvdGAUk_69o"
   );
 
-  // === gallery (unchanged) ===
-  async function renderGrid(filters={}) { /* ... your existing code ... */ }
-  function card(img){ /* ... your existing code ... */ }
-  document.getElementById("btn").onclick = ()=> {
-    renderGrid({ q: document.getElementById('q').value.trim(),
-                 page: document.getElementById('page').value.trim() });
-  };
+  // ---------- GALERIE ----------
+  function card(img){
+    const price =
+      (img.price_min_mad ?? "?") + "–" + (img.price_max_mad ?? "?") + " " +
+      (img.currency || "MAD") + "/" + (img.unit || "m²");
+    return `
+      <div class="card">
+        <img src="${img.url}" alt="${img.filename}" loading="lazy" referrerpolicy="no-referrer"
+             onerror="this.src='data:image/svg+xml;utf8,&lt;svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'600\\' height=\\'400\\'&gt;&lt;rect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f2f2f2\\'/&gt;&lt;text x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%23999\\' font-family=\\'Arial\\'&gt;Image indisponible&lt;/text&gt;&lt;/svg&gt;';">
+        <div class="body">
+          <div class="price">${price}</div>
+          <div>${img.type_guess || "Type inconnu"}</div>
+          <div class="muted">${img.page || ""} • ${img.filename}</div>
+          <a href="${img.url}" target="_blank">Ouvrir l’image</a>
+        </div>
+      </div>`;
+  }
+
+  async function renderGrid(filters = {}) {
+    try {
+      let query = supabase
+        .from("image_asset")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (filters.page) query = query.eq("page", filters.page);
+      if (filters.q)
+        query = query.or(
+          `type_guess.ilike.%${filters.q}%,filename.ilike.%${filters.q}%,page.ilike.%${filters.q}%`
+        );
+      if (filters.min) query = query.gte("price_min_mad", filters.min);
+      if (filters.max) query = query.lte("price_max_mad", filters.max);
+
+      const { data, error } = await query;
+      if (error) {
+        document.getElementById("grid").innerHTML =
+          "<p>Erreur: " + error.message + "</p>";
+        return;
+      }
+      document.getElementById("grid").innerHTML =
+        (data || []).map(card).join("") || "<p>Aucun résultat.</p>";
+    } catch (e) {
+      document.getElementById("grid").innerHTML =
+        "<p>Erreur: " + e.message + "</p>";
+    }
+  }
+
+  document.getElementById("btn").onclick = () =>
+    renderGrid({
+      q: document.getElementById("q").value.trim(),
+      page: document.getElementById("page").value.trim(),
+    });
+
+  // premier rendu
   renderGrid();
 
-  // === chat UI ===
+  // ---------- CHATBOT (DB-first, puis fallback OpenAI) ----------
   const chatLog = document.getElementById("chatLog");
   const chatInput = document.getElementById("chatText");
-  function addMsg(text, me=false, html=false){
+
+  function addMsg(text, me = false, html = false) {
     const div = document.createElement("div");
-    div.className = "msg "+(me?"me":"bot");
-    div[html?"innerHTML":"textContent"] = text;
+    div.className = "msg " + (me ? "me" : "bot");
+    div[html ? "innerHTML" : "textContent"] = text;
     chatLog.appendChild(div);
     chatLog.scrollTop = chatLog.scrollHeight;
   }
 
   document.getElementById("sendBtn").onclick = onSend;
-  chatInput.addEventListener("keydown", e => { if (e.key === "Enter") onSend(); });
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") onSend();
+  });
 
-  // call our API
-  async function askBotOpenAI(text){
-    const r = await fetch("/api/chat", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ message: text })
-    });
-    return await r.json(); // { reply } or { error }
+  // Petite fonction qui "parle" avec les résultats DB
+  function describeResults(items) {
+    const n = items.length;
+    const min = Math.min(...items.map(i => Number(i.price_min_mad || Infinity)));
+    const max = Math.max(...items.map(i => Number(i.price_max_mad || 0)));
+    const pages = [...new Set(items.map(i => i.page).filter(Boolean))].join(", ") || "—";
+    const types = [...new Set(items.map(i => i.type_guess).filter(Boolean))].slice(0,6).join(", ") || "—";
+
+    let txt = `J’ai trouvé ${n} résultat${n>1?'s':''}.`;
+    if (isFinite(min) && max>0) {
+      txt += ` Fourchette de prix estimée: ${min}–${max} MAD/m².`;
+    }
+    txt += `\nPages concernées: ${pages}.\nTypes: ${types}.`;
+    return txt;
   }
 
-  async function onSend(){
-    const text = chatInput.value.trim();
-    if(!text) return;
-    addMsg(text, true);
-    chatInput.value = "";
+  async function askBotOpenAI(text) {
+    const r = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    return await r.json(); // { reply } | { error }
+  }
 
-    // 1) try Supabase product search (your existing parsing)
+  function parseFilters(text) {
     const filters = {};
     const lower = text.toLowerCase();
+
+    // page:
     const pageMatch = lower.match(/page\s*:\s*(accueil|services|marbre\s*&\s*granit|marbre\s+&\s+granit)/i);
-    if (pageMatch){
+    if (pageMatch) {
       const raw = pageMatch[1];
       if (/accueil/i.test(raw)) filters.page = "Accueil";
       else if (/services/i.test(raw)) filters.page = "Services";
       else filters.page = "Marbre & Granit";
     }
+
+    // prix
     const lt = lower.match(/prix\s*<\s*(\d+)/i);
     const gt = lower.match(/prix\s*>\s*(\d+)/i);
     const range = lower.match(/prix\s*(\d+)\s*[-–]\s*(\d+)/i);
     if (lt) filters.max = Number(lt[1]);
     if (gt) filters.min = Number(gt[1]);
     if (range) { filters.min = Number(range[1]); filters.max = Number(range[2]); }
-    const limMatch = lower.match(/(\d+)\s*(item|items|images|résultats)/i);
-    const limit = limMatch ? Math.max(1, Math.min(50, Number(limMatch[1]))) : 12;
+
+    // limit
+    const limMatch = lower.match(/(\d+)\s*(item|items|images|résultats|resultats)/i);
+    filters.limit = limMatch ? Math.max(1, Math.min(50, Number(limMatch[1]))) : 12;
+
+    // mot-clé
     let q = lower
-      .replace(/page\s*:.+?(?=$)/i,"")
-      .replace(/prix\s*[<>].+?(?=$)/i,"")
-      .replace(/prix\s*\d+\s*[-–]\s*\d+/i,"")
-      .replace(/(\d+)\s*(item|items|images|résultats)/i,"")
+      .replace(/page\s*:.+?(?=$)/i, "")
+      .replace(/prix\s*[<>].+?(?=$)/i, "")
+      .replace(/prix\s*\d+\s*[-–]\s*\d+/i, "")
+      .replace(/(\d+)\s*(item|items|images|résultats|resultats)/i, "")
       .trim();
     if (q) filters.q = q;
 
-    let query = supabase.from("image_asset").select("*")
-                  .order("created_at",{ascending:false})
-                  .limit(limit);
+    return filters;
+  }
+
+  async function queryDBForChat(filters) {
+    let query = supabase.from("image_asset").select("*").order("created_at", { ascending: false }).limit(filters.limit || 12);
     if (filters.page) query = query.eq("page", filters.page);
     if (filters.q)    query = query.or(`type_guess.ilike.%${filters.q}%,filename.ilike.%${filters.q}%,page.ilike.%${filters.q}%`);
     if (filters.min)  query = query.gte("price_min_mad", filters.min);
     if (filters.max)  query = query.lte("price_max_mad", filters.max);
+    return await query;
+  }
 
-    const { data, error } = await query;
+  async function onSend() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    addMsg(text, true);
+    chatInput.value = "";
 
-    // 2) if Supabase returns results, show them
+    // 1) DB-first
+    const filters = parseFilters(text);
+    const { data, error } = await queryDBForChat(filters);
+
     if (!error && data && data.length) {
-      const grid = `<div class="result-cards">` + data.map(d=>`
+      // phrase + cartes
+      addMsg(describeResults(data), false, false);
+
+      const grid = `<div class="result-cards">` + data.map(d => `
         <div class="card">
-          <img src="${d.url}" alt="${d.filename}">
+          <img src="${d.url}" alt="${d.filename}" referrerpolicy="no-referrer"
+               onerror="this.src='data:image/svg+xml;utf8,&lt;svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'600\\' height=\\'400\\'&gt;&lt;rect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f2f2f2\\'/&gt;&lt;text x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%23999\\' font-family=\\'Arial\\'&gt;Image indisponible&lt;/text&gt;&lt;/svg&gt;';">
           <div class="body">
-            <div class="price">${d.price_min_mad ?? "?"}–${d.price_max_mad ?? "?"} ${d.currency||"MAD"}/${d.unit||"m²"}</div>
+            <div class="price">${(d.price_min_mad ?? "?")}–${(d.price_max_mad ?? "?")} ${(d.currency||"MAD")}/${(d.unit||"m²")}</div>
             <div>${d.type_guess || ""}</div>
             <div class="muted">${d.page || ""}</div>
             <a href="${d.url}" target="_blank">Ouvrir l’image</a>
           </div>
         </div>`).join("") + `</div>`;
       addMsg(grid, false, true);
+
       return;
     }
 
-    // 3) NO results? fallback to GPT via /api/chat
+    // 2) Fallback OpenAI
     try {
       const out = await askBotOpenAI(text);
       if (out?.reply) addMsg(out.reply);
       else addMsg("Désolé, je n’ai pas pu répondre.");
-    } catch(e){
+    } catch (e) {
       addMsg("Erreur du bot.");
     }
   }
 </script>
-
 </body>
 </html>
