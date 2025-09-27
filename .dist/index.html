@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Galerie + Chatbot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{--bg:#fff;--fg:#111;--muted:#666;--card:#fafafa;--border:#eaeaea}
+  body{font-family:system-ui,Arial;margin:0;background:var(--bg);color:var(--fg)}
+  header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  h1{font-size:20px;margin:0}
+  input,select,button{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff}
+  main{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px; padding:16px; min-height: calc(100vh - 70px);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .card{border:1px solid var(--border);background:#fff;border-radius:12px;overflow:hidden}
+  .card img{width:100%;height:150px;object-fit:cover}
+  .card .body{padding:10px}
+  .price{font-weight:700}
+  .muted{color:var(--muted);font-size:12px}
+  /* Chat */
+  .chat{display:flex;flex-direction:column;height:100%;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff}
+  .chat-log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--card)}
+  .msg{max-width:80%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff}
+  .me{align-self:flex-end;background:#eef6ff;border-color:#d4e7ff}
+  .bot{align-self:flex-start;background:#fff}
+  .chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border)}
+  .result-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🪨 TravauxPierre — Galerie & Chatbot</h1>
+  <input id="q" placeholder="Recherche rapide (type ou page)" />
+  <select id="page">
+    <option value="">Toutes les pages</option>
+    <option>Accueil</option>
+    <option>Services</option>
+    <option>Marbre & Granit</option>
+  </select>
+  <button id="btn">Rechercher</button>
+</header>
+
+<main>
+  <!-- Galerie classique (ta partie existante) -->
+  <section>
+    <div id="grid" class="grid"></div>
+  </section>
+
+  <!-- Chatbot -->
+  <aside class="chat">
+    <div id="chatLog" class="chat-log"></div>
+    <div class="chat-input">
+      <input id="chatText" placeholder='Ex: "marbre noir", "page: services", "prix < 700", "3 items"' />
+      <button id="sendBtn">Envoyer</button>
+    </div>
+  </aside>
+</main>
+
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+  // ⚠️ Mets tes vraies valeurs
+  const supabase = createClient(
+    "https://utmtwxkafpgdqxcncwis.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0bXR3eGthZnBnZHF4Y25jd2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5OTk5MDUsImV4cCI6MjA3NDU3NTkwNX0.0Pj7vX99cc3HZI_AZA4u8TkdGdOgu7jqEvdGAUk_69o"
+  );
+
+  // ===== Galerie simple =====
+  async function renderGrid(filters={}) {
+    let query = supabase.from("image_asset").select("*").order("created_at",{ascending:false}).limit(100);
+    if (filters.page) query = query.eq("page", filters.page);
+    if (filters.q) query = query.or(`type_guess.ilike.%${filters.q}%,page.ilike.%${filters.q}%,filename.ilike.%${filters.q}%`);
+    if (filters.min) query = query.gte("price_min_mad", filters.min);
+    if (filters.max) query = query.lte("price_max_mad", filters.max);
+    const { data, error } = await query;
+    if (error) { document.getElementById("grid").innerHTML = "<p>Erreur: "+error.message+"</p>"; return; }
+    document.getElementById("grid").innerHTML = (data||[]).map(card).join("");
+  }
+  function card(img){
+    return `
+      <div class="card">
+        <img src="${img.url}" alt="${img.filename}" loading="lazy">
+        <div class="body">
+          <div class="price">${img.price_min_mad ?? "?"}–${img.price_max_mad ?? "?"} ${img.currency||"MAD"}/${img.unit||"m²"}</div>
+          <div>${img.type_guess || "Type inconnu"}</div>
+          <div class="muted">${img.page || ""} • ${img.filename}</div>
+          <a href="${img.url}" target="_blank">Ouvrir l’image</a>
+        </div>
+      </div>`;
+  }
+  document.getElementById("btn").onclick = ()=>{
+    renderGrid({ q: document.getElementById('q').value.trim(), page: document.getElementById('page').value.trim() });
+  };
+  renderGrid();
+
+  // ===== Chatbot rule-based =====
+  const chatLog = document.getElementById("chatLog");
+  function addMsg(text, me=false, html=false){
+    const div = document.createElement("div");
+    div.className = "msg "+(me?"me":"bot");
+    div[html?"innerHTML":"textContent"] = text;
+    chatLog.appendChild(div);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  document.getElementById("sendBtn").onclick = onSend;
+  document.getElementById("chatText").addEventListener("keydown", e=>{ if(e.key==="Enter") onSend(); });
+
+  async function onSend(){
+    const text = document.getElementById("chatText").value.trim();
+    if(!text) return;
+    addMsg(text, true);
+    document.getElementById("chatText").value = "";
+
+    // ——— Parsing simple des intentions ———
+    // Ex: "page: services", "prix < 700", "prix 300-600", "3 items", "marbre noir"
+    const filters = {};
+    const lower = text.toLowerCase();
+
+    // page:
+    const pageMatch = lower.match(/page\s*:\s*(accueil|services|marbre\s*&\s*granit|marbre\s+&\s+granit)/i);
+    if (pageMatch){
+      const raw = pageMatch[1];
+      if (/accueil/i.test(raw)) filters.page = "Accueil";
+      else if (/services/i.test(raw)) filters.page = "Services";
+      else filters.page = "Marbre & Granit";
+    }
+
+    // prix <, >, ou intervalle
+    const lt = lower.match(/prix\s*<\s*(\d+)/i);
+    const gt = lower.match(/prix\s*>\s*(\d+)/i);
+    const range = lower.match(/prix\s*(\d+)\s*[-–]\s*(\d+)/i);
+    if (lt) filters.max = Number(lt[1]);
+    if (gt) filters.min = Number(gt[1]);
+    if (range) { filters.min = Number(range[1]); filters.max = Number(range[2]); }
+
+    // limit (nb d'items)
+    const limMatch = lower.match(/(\d+)\s*(item|items|images|résultats)/i);
+    const limit = limMatch ? Math.max(1, Math.min(50, Number(limMatch[1]))) : 12;
+
+    // mot-clé (type, filename, page)
+    // retire les segments déjà traités
+    let q = lower
+      .replace(/page\s*:.+?(?=$)/i,"")
+      .replace(/prix\s*[<>].+?(?=$)/i,"")
+      .replace(/prix\s*\d+\s*[-–]\s*\d+/i,"")
+      .replace(/(\d+)\s*(item|items|images|résultats)/i,"")
+      .trim();
+    if (q) filters.q = q;
+
+    // ——— Requête Supabase ———
+    let query = supabase.from("image_asset").select("*").order("created_at",{ascending:false}).limit(limit);
+    if (filters.page) query = query.eq("page", filters.page);
+    if (filters.q)    query = query.or(`type_guess.ilike.%${filters.q}%,filename.ilike.%${filters.q}%,page.ilike.%${filters.q}%`);
+    if (filters.min)  query = query.gte("price_min_mad", filters.min);
+    if (filters.max)  query = query.lte("price_max_mad", filters.max);
+
+    const { data, error } = await query;
+    if (error){ addMsg("Erreur: "+error.message); return; }
+    if (!data || data.length===0){ addMsg("Aucun résultat trouvé."); return; }
+
+    // ——— Rendu dans le chat ———
+    const grid = `<div class="result-cards">` + data.map(d=>`
+      <div class="card">
+        <img src="${d.url}" alt="${d.filename}">
+        <div class="body">
+          <div class="price">${d.price_min_mad ?? "?"}–${d.price_max_mad ?? "?"} ${d.currency||"MAD"}/${d.unit||"m²"}</div>
+          <div>${d.type_guess || ""}</div>
+          <div class="muted">${d.page || ""}</div>
+          <a href="${d.url}" target="_blank">Ouvrir l’image</a>
+        </div>
+      </div>`).join("") + `</div>`;
+    addMsg(grid, false, true);
+  }
+</script>
+</body>
+</html>
