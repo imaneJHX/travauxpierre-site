@@ -172,5 +172,25 @@
     addMsg(grid, false, true);
   }
 </script>
+<script>
+async function sendMessage(msg) {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: msg })
+  });
+
+  const data = await res.json();
+  return data.reply;
+}
+
+// Exemple : envoyer un message de test
+document.querySelector("#btn").addEventListener("click", async () => {
+  const input = document.getElementById("q").value;
+  const reply = await sendMessage(input);
+  alert("Chatbot: " + reply); // 👉 tu pourras remplacer par ton UI chat
+});
+</script>
+
 </body>
 </html>
