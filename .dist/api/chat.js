@@ -58,10 +58,11 @@ export default async function handler(req, res) {
     if (!message) return badRequest(req, res, "message required");
 
     // Clé OpenAI
-    const key = (process.env.OPENAI_API_KEY || "").trim();
-    if (!key.startsWith("sk-") || key.length < 20) {
-      return serverError(req, res, "Missing OPENAI_API_KEY");
-    }
+  const key = (process.env.OPENAI_API_KEY || "").trim();
+if (!key || key.length < 20) {
+  return serverError(req, res, "Missing OPENAI_API_KEY");
+}
+
 
     // Timeout (15s)
     const controller = new AbortController();
