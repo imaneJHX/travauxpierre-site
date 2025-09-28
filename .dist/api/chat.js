@@ -1,57 +1,47 @@
 // /dist/api/chat.js
 
-// -- Vercel: forcer runtime Node (pas Edge)
+// Forcer le runtime Node (pas Edge)
 export const config = { runtime: "nodejs" };
 
-/**
- * Domaines autorisés à appeler l'API.
- * Tu peux aussi fournir PUBLIC_SITE_ORIGIN dans Vercel si tu veux gérer ça sans re-déployer.
- */
+// Domaines autorisés (tu peux ajuster ou mettre PUBLIC_SITE_ORIGIN dans Vercel)
 const ALLOWED_ORIGINS = [
   process.env.PUBLIC_SITE_ORIGIN || "https://travauxpierre-site.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
 ];
 
-// --- Helpers ---------------------------------------------------------------
+// ---------- Helpers CORS/JSON ----------
 function pickOrigin(req) {
   const o = req.headers?.origin || "";
   return ALLOWED_ORIGINS.includes(o) ? o : ALLOWED_ORIGINS[0];
 }
-
-function writeJson(res, status, data, origin) {
+function send(res, status, data, origin) {
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Vary", "Origin");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.status(status).end(JSON.stringify(data));
 }
-
 function withCors(req, res, status = 200, data = {}) {
   const origin = pickOrigin(req);
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  return writeJson(res, status, data, origin);
+  return send(res, status, data, origin);
 }
+const badRequest = (req, res, msg) => withCors(req, res, 400, { error: msg });
+const serverError = (req, res, msg) => withCors(req, res, 500, { error: msg || "server error" });
 
-function badRequest(req, res, msg) {
-  return withCors(req, res, 400, { error: msg });
-}
-function serverError(req, res, msg) {
-  return withCors(req, res, 500, { error: msg || "server error" });
-}
-
-// --- Handler ---------------------------------------------------------------
+// ---------- Handler ----------
 export default async function handler(req, res) {
-  // Pré-flight CORS
+  // Préflight
   if (req.method === "OPTIONS") {
     const origin = pickOrigin(req);
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    return res.status(204).end(); // pas de body pour OPTIONS
+    return res.status(204).end();
   }
 
   if (req.method !== "POST") {
@@ -59,31 +49,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Tenter de récupérer un JSON, quelle que soit la manière dont Vercel le passe
+    // Body (selon Vercel, déjà parsé ou non)
     let body = req.body;
     if (!body || typeof body !== "object") {
-      try { body = JSON.parse(req.body); } catch { /* ignore */ }
+      try { body = JSON.parse(req.body); } catch {}
     }
     const message = (body?.message ?? "").toString().trim();
     if (!message) return badRequest(req, res, "message required");
 
-    // Clé OpenAI depuis Vercel (Settings > Environment Variables)
+    // Clé OpenAI
     const key = (process.env.OPENAI_API_KEY || "").trim();
-    if (!key || key.length < 20) {
+    if (!key.startsWith("sk-") || key.length < 20) {
       return serverError(req, res, "Missing OPENAI_API_KEY");
     }
 
-    // Timeout pour éviter de bloquer trop longtemps
+    // Timeout (15s)
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    // Appel OpenAI (Chat Completions)
-    // Modèle principal + fallback si indisponible
-    const modelPrimary = "gpt-4o-mini";
-    const modelFallback = "gpt-4o-mini-2024-07-18";
+    // Appel OpenAI (Chat Completions) avec fallback de modèle
+    const primary = "gpt-4o-mini";
+    const fallback = "gpt-4o-mini-2024-07-18";
 
-    async function callOpenAI(model) {
-      return fetch("https://api.openai.com/v1/chat/completions", {
+    const call = (model) =>
+      fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${key}`,
@@ -105,35 +94,32 @@ export default async function handler(req, res) {
         }),
         signal: controller.signal,
       });
-    }
 
-    let r = await callOpenAI(modelPrimary);
-    if (!r.ok) {
-      // Si problème côté modèle, on tente un fallback une fois
-      r = await callOpenAI(modelFallback);
+    let resp = await call(primary);
+    if (!resp.ok) {
+      // On tente un autre modèle une fois
+      resp = await call(fallback);
     }
 
     clearTimeout(timeout);
 
-    if (!r.ok) {
-      // Lire la réponse textuelle pour debug
+    if (!resp.ok) {
       let errText = "";
-      try { errText = await r.text(); } catch {}
-      return serverError(
-        req,
-        res,
-        `OpenAI HTTP ${r.status}: ${errText || r.statusText}`
-      );
+      try { errText = await resp.text(); } catch {}
+      // Log serveur pour debug
+      console.error("OpenAI HTTP error:", resp.status, errText || resp.statusText);
+      return serverError(req, res, `OpenAI HTTP ${resp.status}: ${errText || resp.statusText}`);
     }
 
-    const data = await r.json();
-
+    const data = await resp.json();
     if (data?.error) {
+      console.error("OpenAI API error payload:", data);
       return serverError(req, res, data.error.message || "OpenAI error");
     }
 
     const reply = data?.choices?.[0]?.message?.content?.trim();
     if (!reply) {
+      console.error("OpenAI empty reply payload:", JSON.stringify(data).slice(0, 2000));
       return serverError(req, res, "Empty reply from OpenAI");
     }
 
@@ -142,7 +128,7 @@ export default async function handler(req, res) {
     if (e?.name === "AbortError") {
       return serverError(req, res, "OpenAI request timed out");
     }
-    console.error("API /api/chat error:", e);
+    console.error("API /api/chat exception:", e);
     return serverError(req, res);
   }
 }
