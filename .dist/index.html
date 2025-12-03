@@ -1,254 +1,587 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<title>Galerie + Chatbot</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<style>
-  :root{--bg:#fff;--fg:#111;--muted:#666;--card:#fafafa;--border:#eaeaea}
-  body{font-family:system-ui,Arial;margin:0;background:var(--bg);color:var(--fg)}
-  header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  h1{font-size:20px;margin:0}
-  input,select,button{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
-  main{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px;padding:16px;min-height:calc(100vh - 70px)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-  .card{border:1px solid var(--border);background:#fff;border-radius:12px;overflow:hidden}
-  .card img{width:100%;height:150px;object-fit:cover;background:#f6f6f6}
-  .card .body{padding:10px}
-  .price{font-weight:700}
-  .muted{color:var(--muted);font-size:12px}
-  /* Chat */
-  .chat{display:flex;flex-direction:column;height:100%;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff}
-  .chat-log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--card)}
-  .msg{max-width:80%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff;white-space:pre-wrap}
-  .me{align-self:flex-end;background:#eef6ff;border-color:#d4e7ff}
-  .bot{align-self:flex-start;background:#fff}
-  .chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border)}
-  .result-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px}
-</style>
+  <meta charset="utf-8" />
+  <title>TravauxPierre — Galerie & Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --tp-bg: #050711;
+      --tp-surface: #10121c;
+      --tp-surface-soft: #15182a;
+      --tp-border: #23263a;
+      --tp-border-soft: #1b1f30;
+      --tp-accent: #e2b66a;
+      --tp-text: #f8f5f0;
+      --tp-muted: #a3a8c2;
+      --tp-success: #37c27d;
+      --tp-radius-lg: 18px;
+      --tp-radius-md: 12px;
+    }
+
+    * , *::before , *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--tp-text);
+      background: radial-gradient(circle at top, #15182a 0, #050711 55%);
+    }
+
+    .tp-app {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px 20px 30px;
+    }
+
+    /* ---------- Header ---------- */
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #121426, #050711);
+      border: 1px solid #262a3a;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+      margin-bottom: 18px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-family: "Playfair Display", serif;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+
+    header h1 span {
+      color: var(--tp-accent);
+    }
+
+    header .tp-header-right {
+      display: flex;
+      flex: 1;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    input, select, button {
+      font-family: inherit;
+      font-size: 13px;
+      border-radius: 999px;
+      border: 1px solid var(--tp-border-soft);
+      background: var(--tp-surface-soft);
+      color: var(--tp-text);
+      padding: 7px 11px;
+      outline: none;
+    }
+
+    input::placeholder {
+      color: #6f7591;
+    }
+
+    select {
+      padding-right: 26px;
+    }
+
+    button {
+      background: var(--tp-accent);
+      color: #050711;
+      font-weight: 600;
+      cursor: pointer;
+      border-color: transparent;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      transition: transform .1s ease-out, box-shadow .1s ease-out;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.55);
+    }
+
+    /* ---------- Layout ---------- */
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 3.2fr) minmax(310px, 1.4fr);
+      gap: 20px;
+      min-height: calc(100vh - 110px);
+    }
+
+    @media (max-width: 960px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        border-radius: 18px;
+      }
+    }
+
+    /* ---------- Galerie ---------- */
+
+    section {
+      background: var(--tp-surface);
+      border-radius: var(--tp-radius-lg);
+      border: 1px solid var(--tp-border);
+      padding: 14px 16px 18px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .tp-gallery-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .tp-gallery-title {
+      font-family: "Playfair Display", serif;
+      font-size: 17px;
+    }
+
+    .tp-gallery-sub {
+      font-size: 12px;
+      color: var(--tp-muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      border-radius: var(--tp-radius-md);
+      border: 1px solid #222539;
+      background: radial-gradient(circle at top left, #1b1f32 0, #10121c 55%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: transform .16s ease-out, box-shadow .16s ease-out, border-color .16s ease-out;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: var(--tp-accent);
+      box-shadow: 0 16px 32px rgba(0,0,0,0.65);
+    }
+
+    .card img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      background: #1b1f30;
+      display: block;
+    }
+
+    .card .body {
+      padding: 9px 11px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .price {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--tp-accent);
+    }
+
+    .card .body > div:nth-child(2) {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .muted {
+      color: var(--tp-muted);
+      font-size: 11px;
+    }
+
+    .card a {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--tp-accent);
+      text-decoration: none;
+    }
+
+    .card a:hover {
+      text-decoration: underline;
+    }
+
+    /* ---------- Chatbot ---------- */
+
+    .chat {
+      background: var(--tp-surface);
+      border-radius: var(--tp-radius-lg);
+      border: 1px solid var(--tp-border);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 14px 30px rgba(0,0,0,0.5);
+      max-height: 650px;
+      min-height: 320px;
+    }
+
+    .tp-chat-header {
+      padding: 10px 12px 6px;
+      border-bottom: 1px solid var(--tp-border-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .tp-chat-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .tp-chat-status {
+      font-size: 11px;
+      color: var(--tp-muted);
+      text-align: right;
+    }
+
+    .chat-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: radial-gradient(circle at top, #171a2a 0, #10121c 40%, #0a0d18 100%);
+    }
+
+    .msg {
+      max-width: 88%;
+      padding: 8px 10px;
+      border-radius: 14px;
+      border: 1px solid var(--tp-border-soft);
+      background: #141827;
+      white-space: pre-wrap;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .msg.me {
+      align-self: flex-end;
+      background: #1e2639;
+      border-color: #3b3f59;
+    }
+
+    .msg.bot {
+      align-self: flex-start;
+      background: #131726;
+      border-color: #262a3b;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 8px;
+      padding: 9px 10px;
+      border-top: 1px solid var(--tp-border-soft);
+      background: #0a0d18;
+    }
+
+    .chat-input input {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid var(--tp-border-soft);
+      background: var(--tp-surface-soft);
+      font-size: 13px;
+      padding: 7px 11px;
+    }
+
+    .chat-input button {
+      white-space: nowrap;
+      padding-inline: 13px;
+    }
+
+    /* Cards dans les réponses du bot */
+    .result-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .result-cards .card {
+      border-radius: 10px;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* Scrollbar légère */
+    .chat-log::-webkit-scrollbar,
+    .grid::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-log::-webkit-scrollbar-thumb,
+    .grid::-webkit-scrollbar-thumb {
+      background: #282c3f;
+      border-radius: 999px;
+    }
+
+    /* Footer optionnel */
+    .tp-footer {
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--tp-muted);
+      text-align: center;
+      opacity: 0.75;
+    }
+  </style>
 </head>
 <body>
-<header>
-  <h1>🪨 TravauxPierre — Galerie & Chatbot</h1>
-  <input id="q" placeholder="Recherche rapide (type ou page)" />
-  <select id="page">
-    <option value="">Toutes les pages</option>
-    <option>Accueil</option>
-    <option>Services</option>
-    <option>Marbre & Granit</option>
-  </select>
-  <button id="btn">Rechercher</button>
-</header>
+  <div class="tp-app">
+    <header>
+      <h1>🪨 <span>TravauxPierre</span> — Galerie & Chatbot</h1>
+      <div class="tp-header-right">
+        <input id="q" placeholder="Recherche rapide (type ou page)" />
+        <select id="page">
+          <option value="">Toutes les pages</option>
+          <option>Accueil</option>
+          <option>Services</option>
+          <option>Marbre & Granit</option>
+        </select>
+        <button id="btn">Rechercher</button>
+      </div>
+    </header>
 
-<main>
-  <!-- Galerie -->
-  <section>
-    <div id="grid" class="grid"></div>
-  </section>
-
-  <!-- Chatbot -->
-  <aside class="chat">
-    <div id="chatLog" class="chat-log"></div>
-    <div class="chat-input">
-      <input id="chatText" placeholder='Ex: "marbre noir", "page: services", "prix < 700", "3 items"' />
-      <button id="sendBtn">Envoyer</button>
-    </div>
-  </aside>
-</main>
-
-<script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-  // --- Supabase (garde ton URL + anon key) ---
-  const supabase = createClient(
-    "https://utmtwxkafpgdqxcncwis.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0bXR3eGthZnBnZHF4Y25jd2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5OTk5MDUsImV4cCI6MjA3NDU3NTkwNX0.0Pj7vX99cc3HZI_AZA4u8TkdGdOgu7jqEvdGAUk_69o"
-  );
-
-  // ---------- GALERIE ----------
-  function card(img){
-    const price =
-      (img.price_min_mad ?? "?") + "–" + (img.price_max_mad ?? "?") + " " +
-      (img.currency || "MAD") + "/" + (img.unit || "m²");
-    return `
-      <div class="card">
-        <img src="${img.url}" alt="${img.filename}" loading="lazy" referrerpolicy="no-referrer"
-             onerror="this.src='data:image/svg+xml;utf8,&lt;svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'600\\' height=\\'400\\'&gt;&lt;rect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f2f2f2\\'/&gt;&lt;text x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%23999\\' font-family=\\'Arial\\'&gt;Image indisponible&lt;/text&gt;&lt;/svg&gt;';">
-        <div class="body">
-          <div class="price">${price}</div>
-          <div>${img.type_guess || "Type inconnu"}</div>
-          <div class="muted">${img.page || ""} • ${img.filename}</div>
-          <a href="${img.url}" target="_blank">Ouvrir l’image</a>
+    <main>
+      <!-- Galerie -->
+      <section>
+        <div class="tp-gallery-header">
+          <div>
+            <div class="tp-gallery-title">Galerie TravauxPierre</div>
+            <div class="tp-gallery-sub">
+              Parcourez les photos, types de pierre et fourchettes de prix. Utilisez la recherche ou le chatbot pour filtrer.
+            </div>
+          </div>
         </div>
-      </div>`;
-  }
+        <div id="grid" class="grid"></div>
+      </section>
 
-  async function renderGrid(filters = {}) {
-    try {
-      let query = supabase
-        .from("image_asset")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
+      <!-- Chatbot -->
+      <aside class="chat">
+        <div class="tp-chat-header">
+          <div class="tp-chat-title">Assistant TravauxPierre</div>
+          <div class="tp-chat-status">
+            Questions sur les prix, types de pierre ou pages du site.<br />
+            Exemple : <code>marbre noir</code>, <code>prix &lt; 700</code>, <code>page: services</code>.
+          </div>
+        </div>
+        <div id="chatLog" class="chat-log"></div>
+        <div class="chat-input">
+          <input id="chatText" placeholder='Ex : "marbre noir", "page: services", "prix < 700", "3 items"' />
+          <button id="sendBtn">Envoyer</button>
+        </div>
+      </aside>
+    </main>
 
-      if (filters.page) query = query.eq("page", filters.page);
-      if (filters.q)
-        query = query.or(
-          `type_guess.ilike.%${filters.q}%,filename.ilike.%${filters.q}%,page.ilike.%${filters.q}%`
-        );
-      if (filters.min) query = query.gte("price_min_mad", filters.min);
-      if (filters.max) query = query.lte("price_max_mad", filters.max);
+    <div class="tp-footer">
+      © 2025 TravauxPierre — Fourniture & pose de marbre et pierre naturelle au Maroc.
+    </div>
+  </div>
 
-      const { data, error } = await query;
-      if (error) {
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    // --- Supabase (garde ton URL + anon key) ---
+    const supabase = createClient(
+      "https://utmtwxkafpgdqxcncwis.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0bXR3eGthZnBnZHF4Y25jd2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5OTk5MDUsImV4cCI6MjA3NDU3NTkwNX0.0Pj7vX99cc3HZI_AZA4u8TkdGdOgu7jqEvdGAUk_69o"
+    );
+
+    // ---------- GALERIE ----------
+    function card(img){
+      const price =
+        (img.price_min_mad ?? "?") + "–" + (img.price_max_mad ?? "?") + " " +
+        (img.currency || "MAD") + "/" + (img.unit || "m²");
+      return `
+        <div class="card">
+          <img src="${img.url}" alt="${img.filename}" loading="lazy" referrerpolicy="no-referrer"
+            onerror="this.src='data:image/svg+xml;utf8,&lt;svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'600\\' height=\\'400\\'&gt;&lt;rect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f2f2f2\\'/&gt;&lt;text x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%23999\\' font-family=\\'Arial\\'&gt;Image indisponible&lt;/text&gt;&lt;/svg&gt;';">
+          <div class="body">
+            <div class="price">${price}</div>
+            <div>${img.type_guess || "Type inconnu"}</div>
+            <div class="muted">${img.page || ""} • ${img.filename}</div>
+            <a href="${img.url}" target="_blank">Ouvrir l’image</a>
+          </div>
+        </div>`;
+    }
+
+    async function renderGrid(filters = {}) {
+      try {
+        let query = supabase
+          .from("image_asset")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (filters.page) query = query.eq("page", filters.page);
+        if (filters.q)
+          query = query.or(
+            `type_guess.ilike.%${filters.q}%,filename.ilike.%${filters.q}%,page.ilike.%${filters.q}%`
+          );
+        if (filters.min) query = query.gte("price_min_mad", filters.min);
+        if (filters.max) query = query.lte("price_max_mad", filters.max);
+
+        const { data, error } = await query;
+        if (error) {
+          document.getElementById("grid").innerHTML =
+            "<p>Erreur: " + error.message + "</p>";
+          return;
+        }
         document.getElementById("grid").innerHTML =
-          "<p>Erreur: " + error.message + "</p>";
+          (data || []).map(card).join("") || "<p>Aucun résultat.</p>";
+      } catch (e) {
+        document.getElementById("grid").innerHTML =
+          "<p>Erreur: " + e.message + "</p>";
+      }
+    }
+
+    document.getElementById("btn").onclick = () =>
+      renderGrid({
+        q: document.getElementById("q").value.trim(),
+        page: document.getElementById("page").value.trim(),
+      });
+
+    // premier rendu
+    renderGrid();
+
+    // ---------- CHATBOT (DB-first, puis fallback OpenAI) ----------
+    const chatLog = document.getElementById("chatLog");
+    const chatInput = document.getElementById("chatText");
+
+    function addMsg(text, me = false, html = false) {
+      const div = document.createElement("div");
+      div.className = "msg " + (me ? "me" : "bot");
+      div[html ? "innerHTML" : "textContent"] = text;
+      chatLog.appendChild(div);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    document.getElementById("sendBtn").onclick = onSend;
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") onSend();
+    });
+
+    function describeResults(items) {
+      const n = items.length;
+      const min = Math.min(...items.map(i => Number(i.price_min_mad || Infinity)));
+      const max = Math.max(...items.map(i => Number(i.price_max_mad || 0)));
+      const pages = [...new Set(items.map(i => i.page).filter(Boolean))].join(", ") || "—";
+      const types = [...new Set(items.map(i => i.type_guess).filter(Boolean))].slice(0,6).join(", ") || "—";
+
+      let txt = `J’ai trouvé ${n} résultat${n>1?'s':''}.`;
+      if (isFinite(min) && max>0) {
+        txt += ` Fourchette de prix estimée: ${min}–${max} MAD/m².`;
+      }
+      txt += `\nPages concernées: ${pages}.\nTypes: ${types}.`;
+      return txt;
+    }
+
+    async function askBotOpenAI(text) {
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      return await r.json(); // { reply } | { error }
+    }
+
+    function parseFilters(text) {
+      const filters = {};
+      const lower = text.toLowerCase();
+
+      const pageMatch = lower.match(/page\s*:\s*(accueil|services|marbre\s*&\s*granit|marbre\s+&\s+granit)/i);
+      if (pageMatch) {
+        const raw = pageMatch[1];
+        if (/accueil/i.test(raw)) filters.page = "Accueil";
+        else if (/services/i.test(raw)) filters.page = "Services";
+        else filters.page = "Marbre & Granit";
+      }
+
+      const lt = lower.match(/prix\s*<\s*(\d+)/i);
+      const gt = lower.match(/prix\s*>\s*(\d+)/i);
+      const range = lower.match(/prix\s*(\d+)\s*[-–]\s*(\d+)/i);
+      if (lt) filters.max = Number(lt[1]);
+      if (gt) filters.min = Number(gt[1]);
+      if (range) { filters.min = Number(range[1]); filters.max = Number(range[2]); }
+
+      const limMatch = lower.match(/(\d+)\s*(item|items|images|résultats|resultats)/i);
+      filters.limit = limMatch ? Math.max(1, Math.min(50, Number(limMatch[1]))) : 12;
+
+      let q = lower
+        .replace(/page\s*:.+?(?=$)/i, "")
+        .replace(/prix\s*[<>].+?(?=$)/i, "")
+        .replace(/prix\s*\d+\s*[-–]\s*\d+/i, "")
+        .replace(/(\d+)\s*(item|items|images|résultats|resultats)/i, "")
+        .trim();
+      if (q) filters.q = q;
+
+      return filters;
+    }
+
+    async function queryDBForChat(filters) {
+      let query = supabase.from("image_asset").select("*").order("created_at", { ascending: false }).limit(filters.limit || 12);
+      if (filters.page) query = query.eq("page", filters.page);
+      if (filters.q)    query = query.or(`type_guess.ilike.%${filters.q}%,filename.ilike.%${filters.q}%,page.ilike.%${filters.q}%`);
+      if (filters.min)  query = query.gte("price_min_mad", filters.min);
+      if (filters.max)  query = query.lte("price_max_mad", filters.max);
+      return await query;
+    }
+
+    async function onSend() {
+      const text = chatInput.value.trim();
+      if (!text) return;
+      addMsg(text, true);
+      chatInput.value = "";
+
+      const filters = parseFilters(text);
+      const { data, error } = await queryDBForChat(filters);
+
+      if (!error && data && data.length) {
+        addMsg(describeResults(data), false, false);
+
+        const grid = `<div class="result-cards">` + data.map(d => `
+          <div class="card">
+            <img src="${d.url}" alt="${d.filename}" referrerpolicy="no-referrer"
+              onerror="this.src='data:image/svg+xml;utf8,&lt;svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'600\\' height=\\'400\\'&gt;&lt;rect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f2f2f2\\'/&gt;&lt;text x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%23999\\' font-family=\\'Arial\\'&gt;Image indisponible&lt;/text&gt;&lt;/svg&gt;';">
+            <div class="body">
+              <div class="price">${(d.price_min_mad ?? "?")}–${(d.price_max_mad ?? "?")} ${(d.currency||"MAD")}/${(d.unit||"m²")}</div>
+              <div>${d.type_guess || ""}</div>
+              <div class="muted">${d.page || ""}</div>
+              <a href="${d.url}" target="_blank">Ouvrir l’image</a>
+            </div>
+          </div>`).join("") + `</div>`;
+        addMsg(grid, false, true);
+
         return;
       }
-      document.getElementById("grid").innerHTML =
-        (data || []).map(card).join("") || "<p>Aucun résultat.</p>";
-    } catch (e) {
-      document.getElementById("grid").innerHTML =
-        "<p>Erreur: " + e.message + "</p>";
+
+      try {
+        const out = await askBotOpenAI(text);
+        if (out?.reply) addMsg(out.reply);
+        else addMsg("Désolé, je n’ai pas pu répondre.");
+      } catch (e) {
+        addMsg("Erreur du bot.");
+      }
     }
-  }
-
-  document.getElementById("btn").onclick = () =>
-    renderGrid({
-      q: document.getElementById("q").value.trim(),
-      page: document.getElementById("page").value.trim(),
-    });
-
-  // premier rendu
-  renderGrid();
-
-  // ---------- CHATBOT (DB-first, puis fallback OpenAI) ----------
-  const chatLog = document.getElementById("chatLog");
-  const chatInput = document.getElementById("chatText");
-
-  function addMsg(text, me = false, html = false) {
-    const div = document.createElement("div");
-    div.className = "msg " + (me ? "me" : "bot");
-    div[html ? "innerHTML" : "textContent"] = text;
-    chatLog.appendChild(div);
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }
-
-  document.getElementById("sendBtn").onclick = onSend;
-  chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") onSend();
-  });
-
-  // Petite fonction qui "parle" avec les résultats DB
-  function describeResults(items) {
-    const n = items.length;
-    const min = Math.min(...items.map(i => Number(i.price_min_mad || Infinity)));
-    const max = Math.max(...items.map(i => Number(i.price_max_mad || 0)));
-    const pages = [...new Set(items.map(i => i.page).filter(Boolean))].join(", ") || "—";
-    const types = [...new Set(items.map(i => i.type_guess).filter(Boolean))].slice(0,6).join(", ") || "—";
-
-    let txt = `J’ai trouvé ${n} résultat${n>1?'s':''}.`;
-    if (isFinite(min) && max>0) {
-      txt += ` Fourchette de prix estimée: ${min}–${max} MAD/m².`;
-    }
-    txt += `\nPages concernées: ${pages}.\nTypes: ${types}.`;
-    return txt;
-  }
-
-  async function askBotOpenAI(text) {
-    const r = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
-    });
-    return await r.json(); // { reply } | { error }
-  }
-
-  function parseFilters(text) {
-    const filters = {};
-    const lower = text.toLowerCase();
-
-    // page:
-    const pageMatch = lower.match(/page\s*:\s*(accueil|services|marbre\s*&\s*granit|marbre\s+&\s+granit)/i);
-    if (pageMatch) {
-      const raw = pageMatch[1];
-      if (/accueil/i.test(raw)) filters.page = "Accueil";
-      else if (/services/i.test(raw)) filters.page = "Services";
-      else filters.page = "Marbre & Granit";
-    }
-
-    // prix
-    const lt = lower.match(/prix\s*<\s*(\d+)/i);
-    const gt = lower.match(/prix\s*>\s*(\d+)/i);
-    const range = lower.match(/prix\s*(\d+)\s*[-–]\s*(\d+)/i);
-    if (lt) filters.max = Number(lt[1]);
-    if (gt) filters.min = Number(gt[1]);
-    if (range) { filters.min = Number(range[1]); filters.max = Number(range[2]); }
-
-    // limit
-    const limMatch = lower.match(/(\d+)\s*(item|items|images|résultats|resultats)/i);
-    filters.limit = limMatch ? Math.max(1, Math.min(50, Number(limMatch[1]))) : 12;
-
-    // mot-clé
-    let q = lower
-      .replace(/page\s*:.+?(?=$)/i, "")
-      .replace(/prix\s*[<>].+?(?=$)/i, "")
-      .replace(/prix\s*\d+\s*[-–]\s*\d+/i, "")
-      .replace(/(\d+)\s*(item|items|images|résultats|resultats)/i, "")
-      .trim();
-    if (q) filters.q = q;
-
-    return filters;
-  }
-
-  async function queryDBForChat(filters) {
-    let query = supabase.from("image_asset").select("*").order("created_at", { ascending: false }).limit(filters.limit || 12);
-    if (filters.page) query = query.eq("page", filters.page);
-    if (filters.q)    query = query.or(`type_guess.ilike.%${filters.q}%,filename.ilike.%${filters.q}%,page.ilike.%${filters.q}%`);
-    if (filters.min)  query = query.gte("price_min_mad", filters.min);
-    if (filters.max)  query = query.lte("price_max_mad", filters.max);
-    return await query;
-  }
-
-  async function onSend() {
-    const text = chatInput.value.trim();
-    if (!text) return;
-    addMsg(text, true);
-    chatInput.value = "";
-
-    // 1) DB-first
-    const filters = parseFilters(text);
-    const { data, error } = await queryDBForChat(filters);
-
-    if (!error && data && data.length) {
-      // phrase + cartes
-      addMsg(describeResults(data), false, false);
-
-      const grid = `<div class="result-cards">` + data.map(d => `
-        <div class="card">
-          <img src="${d.url}" alt="${d.filename}" referrerpolicy="no-referrer"
-               onerror="this.src='data:image/svg+xml;utf8,&lt;svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'600\\' height=\\'400\\'&gt;&lt;rect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f2f2f2\\'/&gt;&lt;text x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%23999\\' font-family=\\'Arial\\'&gt;Image indisponible&lt;/text&gt;&lt;/svg&gt;';">
-          <div class="body">
-            <div class="price">${(d.price_min_mad ?? "?")}–${(d.price_max_mad ?? "?")} ${(d.currency||"MAD")}/${(d.unit||"m²")}</div>
-            <div>${d.type_guess || ""}</div>
-            <div class="muted">${d.page || ""}</div>
-            <a href="${d.url}" target="_blank">Ouvrir l’image</a>
-          </div>
-        </div>`).join("") + `</div>`;
-      addMsg(grid, false, true);
-
-      return;
-    }
-
-    // 2) Fallback OpenAI
-    try {
-      const out = await askBotOpenAI(text);
-      if (out?.reply) addMsg(out.reply);
-      else addMsg("Désolé, je n’ai pas pu répondre.");
-    } catch (e) {
-      addMsg("Erreur du bot.");
-    }
-  }
-</script>
+  </script>
 </body>
 </html>
