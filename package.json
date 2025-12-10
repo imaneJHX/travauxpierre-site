@@ -1,0 +1,27 @@
+{
+  "name": "travauxpierre-site",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "echo \"Nothing to build\"",
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imaneJHX/travauxpierre-site.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/imaneJHX/travauxpierre-site/issues"
+  },
+  "homepage": "https://github.com/imaneJHX/travauxpierre-site#readme",
+  "description": "Site galerie + chatbot TravauxPierre",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.87.1"
+  }
+}
