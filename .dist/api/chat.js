@@ -1,9 +1,9 @@
-// api/chat.js
+// /api/chat.js ou /dist/api/chat.js selon ton projet
 
-import { createClient } from "@supabase/supabase-js";
+const { createClient } = require("@supabase/supabase-js");
 
 // ----- Runtime Node -----
-export const config = { runtime: "nodejs" };
+exports.config = { runtime: "nodejs" };
 
 // ----- ENV / CONFIG -----
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
@@ -20,7 +20,7 @@ const supabase =
 const ALLOWED_ORIGINS = [
   process.env.PUBLIC_SITE_ORIGIN || "https://travauxpierre-site.vercel.app",
   "http://localhost:5173",
-  "http://localhost:3000",
+  "http://localhost:3000"
 ];
 
 // ---- CORS helpers ----
@@ -68,10 +68,10 @@ function parseOrderMessage(text) {
     product_filename: get("produit") || get("product"),
     quantity: get("quantite") || get("qty"),
     unit: "m²",
-    raw: payload,
+    raw: payload
   };
 
-  // On exige au moins un téléphone pour pouvoir rappeler le client
+  // On exige au moins un téléphone
   if (!order.phone) return null;
 
   return order;
@@ -92,8 +92,8 @@ async function saveOrder(order) {
         product_filename: order.product_filename,
         quantity: order.quantity ? Number(order.quantity) : null,
         unit: order.unit,
-        raw_message: order.raw,
-      },
+        raw_message: order.raw
+      }
     ])
     .select()
     .single();
@@ -107,7 +107,7 @@ async function saveOrder(order) {
 }
 
 // --------- HANDLER PRINCIPAL ---------
-export default async function handler(req, res) {
+async function handler(req, res) {
   // Préflight CORS
   if (req.method === "OPTIONS") {
     const o = pickOrigin(req);
@@ -139,7 +139,7 @@ export default async function handler(req, res) {
     const order = parseOrderMessage(message);
 
     if (order) {
-      const saved = await saveOrder(order); // eslint-disable-line no-unused-vars
+      await saveOrder(order);
 
       return send(
         res,
@@ -151,7 +151,7 @@ export default async function handler(req, res) {
             `📞 Téléphone : ${order.phone}\n` +
             `🪨 Produit : ${order.product_filename || "(non fourni)"}\n` +
             `📦 Quantité : ${order.quantity || "(non fournie)"} ${order.unit}\n\n` +
-            `Nous vous contacterons très prochainement pour confirmer les détails.`,
+            `Nous vous contacterons très prochainement pour confirmer les détails.`
         },
         pickOrigin(req)
       );
@@ -176,7 +176,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -189,11 +189,11 @@ export default async function handler(req, res) {
               "Tu es l'assistant du site TravauxPierre. " +
               "Réponds en français, de manière courte et claire. " +
               "Si l'utilisateur parle de marbre, pierre, prix, surfaces, " +
-              "donne des réponses simples et utiles.",
+              "donne des réponses simples et utiles."
           },
-          { role: "user", content: message },
-        ],
-      }),
+          { role: "user", content: message }
+        ]
+      })
     });
 
     if (!resp.ok) {
@@ -213,3 +213,6 @@ export default async function handler(req, res) {
     return server(req, res, "Erreur OpenAI");
   }
 }
+
+// Export CJS pour Vercel
+module.exports = handler;
